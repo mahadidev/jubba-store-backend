@@ -9,40 +9,29 @@ import {
   TableRow,
   Button,
 } from "@mui/material";
+import Link from "next/link";
 import BaseCard from "../baseCard/BaseCard";
 import Image from "next/image";
 import { useStateContext } from "../../../context";
-
-const products = [
-  {
-    id: 1,
-    name: "সেমি-লং সৌদিয়া সাদা জুব্বা",
-    thumbnail: `${process.env.NEXT_PUBLIC_FRONTEND_URL}/images/product_1.jpg`,
-    price: 350,
-    qty: 10,
-    sell: 5,
-    options: {
-      colors: [
-        {
-          label: "White",
-          className: "bg-white",
-        },
-        {
-          label: "Black",
-          className: "bg-black",
-        },
-        {
-          label: "SkyBlue",
-          className: "bg-blue",
-        },
-      ],
-    },
-  },
-];
+import { firebaseDatabase } from "../../../lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
 
 const ProductTable = () => {
-  // context
-  const { modalController } = useStateContext();
+  const [products, setProducts] = React.useState([]);
+
+  React.useEffect(() => {
+    const getData = async () => {
+      const productsCollectionRef = collection(firebaseDatabase, "products");
+      const productsData = await getDocs(productsCollectionRef);
+      setProducts(
+        productsData.docs.map((doc) => ({
+          ...doc.data(),
+          id: doc.id,
+        }))
+      );
+    };
+    getData();
+  }, []);
 
   return (
     <>
@@ -50,7 +39,7 @@ const ProductTable = () => {
         title="Product List"
         link={{
           label: "Add new product",
-          href: "/admin/product/add",
+          href: "/products/add",
         }}
       >
         <Table
@@ -87,6 +76,11 @@ const ProductTable = () => {
                   Quantity
                 </Typography>
               </TableCell>
+              <TableCell>
+                <Typography color="textSecondary" variant="h6">
+                  Size
+                </Typography>
+              </TableCell>
               <TableCell align="right">
                 <Typography color="textSecondary" variant="h6">
                   Manage
@@ -95,8 +89,9 @@ const ProductTable = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {products.map((product) => (
+            {products.map((product, index) => (
               <TableRow key={product.name}>
+                {console.log(product)}
                 <TableCell>
                   <Typography
                     sx={{
@@ -104,7 +99,7 @@ const ProductTable = () => {
                       fontWeight: "500",
                     }}
                   >
-                    {product.id}
+                    {index + 1}
                   </Typography>
                 </TableCell>
 
@@ -133,7 +128,7 @@ const ProductTable = () => {
                         <Image
                           width={100}
                           height={100}
-                          src={product.thumbnail}
+                          src={product.images[product.thumbnail]}
                           alt="Product Thumbnail"
                         />
                       </Box>
@@ -154,10 +149,8 @@ const ProductTable = () => {
                             fontSize: "13px",
                           }}
                         >
-                          {product.options.colors?.map((color) => (
-                            <Typography key={color.label}>
-                              {color.label}
-                            </Typography>
+                          {product.colors?.map((color) => (
+                            <Typography key={color}>{color}</Typography>
                           ))}
                         </Typography>
                       </Box>
@@ -171,7 +164,7 @@ const ProductTable = () => {
                 </TableCell>
                 <TableCell>
                   <Typography color="textSecondary" variant="h6">
-                    {product.sell}
+                    {product.sell ? product.sell : 0}
                   </Typography>
                 </TableCell>
                 <TableCell>
@@ -179,19 +172,45 @@ const ProductTable = () => {
                     {product.qty}
                   </Typography>
                 </TableCell>
-                <TableCell
-                  align="right"
-                  sx={{
-                    display: "flex",
-                    gap: "0.5rem",
-                  }}
-                >
-                  <Button variant="contained" color="secondary">
-                    Edit
-                  </Button>
-                  <Button variant="contained" color="warning">
-                    Delete
-                  </Button>
+                <TableCell>
+                  <Typography
+                    color="textSecondary"
+                    display={"flex"}
+                    flexWrap="wrap"
+                    gap="0.2rem"
+                    maxWidth="200px"
+                  >
+                    {product.size.map((size, index) => (
+                      <Typography
+                        sx={{
+                          fontSize: "13px",
+                          lineHeight: "1",
+                        }}
+                        color="textSecondary"
+                        key={index}
+                      >
+                        {size.label},
+                      </Typography>
+                    ))}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography
+                    color="textSecondary"
+                    variant="h6"
+                    justifyContent="end"
+                    display="flex"
+                    gap={"0.2rem"}
+                  >
+                    <Link href={`/products/edit/${product.id}`}>
+                      <Button variant="contained" color="secondary">
+                        Edit
+                      </Button>
+                    </Link>
+                    <Button variant="contained" color="warning">
+                      Delete
+                    </Button>
+                  </Typography>
                 </TableCell>
               </TableRow>
             ))}

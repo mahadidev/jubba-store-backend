@@ -1,5 +1,5 @@
 import { Grid } from "@mui/material";
-import { ProductTable } from "../../../src/components";
+import { ProductTable } from "../../src/components";
 
 const ProductPage = () => {
   return (

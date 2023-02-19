@@ -10,6 +10,7 @@ import FullLayout from "../src/layouts/FullLayout";
 import "../styles/style.css";
 import { ContextProvider } from "../context";
 import ModalProvider from "../src/components/modal";
+import { Toaster } from "react-hot-toast";
 // Client-side cache, shared for the whole session of the user in the browser.
 const clientSideEmotionCache = createEmotionCache();
 
@@ -18,6 +19,7 @@ export default function MyApp(props) {
 
   return (
     <ContextProvider>
+      <Toaster />
       <CacheProvider value={emotionCache}>
         <Head>
           <title>Flexy NextJs Starter kit page</title>
