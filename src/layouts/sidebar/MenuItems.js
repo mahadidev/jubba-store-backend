@@ -9,6 +9,11 @@ const Menuitems = [
     icon: "disc",
     href: "/products",
   },
+  {
+    title: "Users",
+    icon: "disc",
+    href: "/users",
+  },
 ];
 
 export default Menuitems;

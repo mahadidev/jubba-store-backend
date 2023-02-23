@@ -12,7 +12,7 @@ import {
 
 const BaseCard = (props) => {
   return (
-    <Card>
+    <Card sx={props.sx}>
       <Box
         p={2}
         display="flex"
@@ -20,12 +20,12 @@ const BaseCard = (props) => {
         gap={"0.5"}
         justifyContent="space-between"
       >
-        <Typography variant="h4">{props.title}</Typography>
+        {props.title && <Typography variant="h4">{props.title}</Typography>}
 
         {props.button && (
           <Button
             variant="contained"
-            color="primary"
+            color={props.button.color ? props.button.color : "primary"}
             onClick={() => {
               if (props.button.onClick) {
                 props.button.onClick();
@@ -43,6 +43,8 @@ const BaseCard = (props) => {
             </Button>
           </NextLink>
         )}
+
+        {props.rightElement && props.rightElement}
       </Box>
       <CardContent>{props.children}</CardContent>
     </Card>

@@ -21,7 +21,7 @@ import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { toast } from "react-hot-toast";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
 
-const ProductTable = () => {
+const DataTable = (props) => {
   const [products, setProducts] = React.useState([]);
 
   const onDeleteProduct = async (id) => {
@@ -62,7 +62,7 @@ const ProductTable = () => {
 
   return (
     <>
-      <BaseCard title="Product List">
+      <BaseCard title={props.title}>
         <Stack direction="row" spacing={2} className="my-2 mb-2">
           <Autocomplete
             disablePortal
@@ -289,4 +289,4 @@ const ProductTable = () => {
   );
 };
 
-export default ProductTable;
+export default DataTable;

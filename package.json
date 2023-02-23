@@ -10,6 +10,7 @@
     "@mui/icons-material": "^5.11.9",
     "@mui/lab": "^5.0.0-alpha.65",
     "@mui/material": "^5.11.9",
+    "@mui/x-data-grid": "^5.17.24",
     "apexcharts": "^3.23.1",
     "browser-image-compression": "^2.0.0",
     "clsx": "1.1.1",

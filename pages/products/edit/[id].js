@@ -26,260 +26,159 @@ import {
   collection,
   deleteDoc,
   doc,
-  updateDoc,
-  getDocs,
   getDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { firebaseDatabase, firebaseStorage } from "../../../lib/firebase";
-import {
-  deleteObject,
-  getDownloadURL,
-  ref,
-  uploadBytes,
-  uploadBytesResumable,
-} from "firebase/storage";
 import { toast } from "react-hot-toast";
+import { imageUploader } from "../../../lib";
+import { deleteObject, ref } from "firebase/storage";
 import { useRouter } from "next/router";
 
 const ProductEdit = () => {
-  // default product value
-  const [defaultProductData, setDefaultProductData] = React.useState();
   // product details
   const [productId, setProductId] = React.useState();
-  const [productName, setProductName] = React.useState("");
+  const [name, setName] = React.useState("");
   const [price, setPrice] = React.useState("");
-  const [quantity, setQuantity] = React.useState(0);
+  const [qty, setQty] = React.useState("");
   const [description, setDescription] = React.useState("");
-  const [uploadedImageUrl, setUploadedImageUrl] = React.useState([]);
-  const [thumbnailUrl, setThumbnailUrl] = React.useState();
-  const [thumbnailIndex, setThumbnailIndex] = React.useState();
-  // image management
+  const [imagesUrl, setImagesUrl] = React.useState([]);
+  const [thumbnailUrl, setThumbnailUrl] = React.useState(null);
+  const [isLoading, setLoading] = React.useState(false);
+  // images management
   const [images, setImages] = React.useState([]);
-  const [thumbnail, setThumbnail] = React.useState();
   const maxNumber = 69;
-  const onChangeThumbnail = (imageList, addUpdateIndex) => {
-    // data for submit
-    console.log(imageList, addUpdateIndex);
-    setImages(imageList);
-  };
-  const onMakeThumbnail = (index) => {
-    setThumbnail({
-      data_url: images[index],
-      index: index,
+  const onChangeImage = async (imageList, addUpdateIndex) => {
+    // uploaded images url
+    const uploadedImagesUrl = [];
+    // get uploaded image
+    const uploadImage = imageList?.map(
+      (image, index) =>
+        new Promise(async (resolve, reject) => {
+          imageUploader({
+            image: image.file,
+            imageName: `product_thumbnail_${productId}__${
+              index * Math.floor(Math.random() * 1000000000)
+            }__.png`,
+            onUploaded: (uploadedImageUrl) => {
+              uploadedImagesUrl.push(uploadedImageUrl);
+              resolve(true);
+            },
+            onError: (error) => {
+              console.log("image is not uploaded!", error);
+              resolve(false);
+            },
+          });
+        })
+    );
+    // will be called this after finished the loop.
+    Promise.all(uploadImage).then(async () => {
+      setImagesUrl((prevImages) => [...prevImages, ...uploadedImagesUrl]);
     });
+  };
+  const onRemoveImage = async (url) => {
+    const imageName = url.split("product_thumbnail_")[1];
+    imageName = imageName.split(".png")[0];
+    imageName = `product_thumbnail_${imageName}.png`;
+    const newImagesUrl = imagesUrl.filter((imageUrl) => imageUrl !== url);
+    setImagesUrl(newImagesUrl);
+
+    // delete image from firebase
+    const firebaseImageRef = ref(firebaseStorage, imageName);
+    await deleteObject(firebaseImageRef)
+      .then(async () => {
+        console.log("Image deleted successfully");
+      })
+      .catch((error) => {
+        console.log("Image is not deleted!", error);
+      });
+  };
+  const onMakeThumbnail = async (url) => {
+    setThumbnailUrl(url);
   };
   // size management
   const [size, setSize] = React.useState([]);
-  const [sizeOptions, setSizeOptions] = React.useState([
+  const [sizeOptions] = React.useState([
     { label: "Small", value: "sm", id: 1 },
-    { label: "Medium", className: "md", id: 2 },
-    { label: "Large", className: "lg", id: 3 },
-    { label: "Extra Large", className: "xl", id: 3 },
+    { label: "Medium", value: "md", id: 2 },
+    { label: "Large", value: "lg", id: 3 },
+    { label: "Extra Large", value: "xl", id: 3 },
   ]);
   const onChangeSize = (val) => {
     setSize(val);
   };
   // colors management
   const [colors, setColors] = React.useState([]);
-  const [colorVal, setColorVal] = React.useState();
-  const [colorOptions, setColorOptions] = React.useState([
-    "Black",
-    "White",
-    "SkyBlue",
-  ]);
+  const [colorOptions] = React.useState(["Black", "White", "SkyBlue"]);
   const onChangeColor = (val) => {
     setColors(val);
   };
-
-  // product upload
-  const [isLoading, setLoading] = React.useState(false);
-  const [isUploaded, setUploaded] = React.useState(false);
-
-  // remove uploaded files
-  const onRemoveUploadedImage = async (index) => {
-    const updateProductDetails = async () => {
-      const updatedProductData = {
-        ...defaultProductData,
-        images: defaultProductData.images.filter(
-          (imageItem, imageIndex) => imageIndex !== index
-        ),
-        thumbnail: thumbnailIndex === index ? 0 : thumbnailIndex,
-      };
-      const productRef = doc(
-        firebaseDatabase,
-        "products",
-        "0kYN3ZpwfgS1jc9qBI7L"
-      );
-      await updateDoc(productRef, updatedProductData).then(() => {
-        // update default value
-        setDefaultProductData(updatedProductData);
-        console.log("Product updated successfully");
-      });
-    };
-
-    // update product details
-    updateProductDetails();
-    // const selectedImage = uploadedImageUrl[index];
-    // // remove first part of url
-    // selectedImage = selectedImage.split("product_thumbnail_")[1];
-    // // remove last part of url
-    // selectedImage = selectedImage.split(".png")[0];
-    // // make correct url
-    // selectedImage = `product_thumbnail_${selectedImage}.png`;
-    // // image ref
-    // const firebaseImageRef = ref(firebaseStorage, selectedImage);
-    // await deleteObject(firebaseImageRef)
-    //   .then(async () => {
-    //     // console.log("File deleted successfully");
-    //     // set new images list
-    //     const newImagesList = uploadedImageUrl.slice(index);
-    //     setUploadedImageUrl(newImagesList);
-
-    //     // update product details
-    //     updateProductDetails();
-    //   })
-    //   .catch((error) => {
-    //     console.log("Uh-oh, an error occurred!");
-    //   });
+  // get product id
+  const setProductData = async (id) => {
+    // set product id
+    setProductId(id);
+    // product ref
+    const productRef = doc(firebaseDatabase, "products", id);
+    // get product data
+    const selectedProduct = await getDoc(productRef);
+    selectedProduct = selectedProduct.data();
+    // set product data
+    setName(selectedProduct.name ? selectedProduct.name : "");
+    setPrice(selectedProduct.price ? selectedProduct.price : "");
+    setQty(selectedProduct.qty ? selectedProduct.qty : "");
+    setDescription(
+      selectedProduct.description ? selectedProduct.description : ""
+    );
+    setColors(selectedProduct.colors ? selectedProduct.colors : []);
+    setSize(selectedProduct.size ? selectedProduct.size : []);
+    setImagesUrl(selectedProduct.images ? selectedProduct.images : []);
+    setThumbnailUrl(
+      selectedProduct.thumbnail ? selectedProduct.thumbnail : null
+    );
   };
-
-  // on update product
-  const onUpdateProduct = () => {
+  // update product
+  const onUpdate = async () => {
     // set loading true
     setLoading(true);
-    // uploaded images list
-    const uploadedImages = [];
-    const uploadImage = images?.map(
-      (imageItem, index) =>
-        new Promise(async (resolve, reject) => {
-          // compress image
-          const imageCompressOption = {
-            maxSizeMB: 0.25,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-          };
-          try {
-            const compressImage = await imageCompression(
-              imageItem.file,
-              imageCompressOption
-            );
-
-            // upload image
-            const metadata = {
-              contentType: "image/jpeg",
-            };
-            const storageRef = ref(
-              firebaseStorage,
-              `product_thumbnail_${productName.replace(/ /g, "_")}_${index}.png`
-            );
-            const uploadTask = uploadBytesResumable(
-              storageRef,
-              compressImage,
-              metadata
-            );
-            uploadTask.on(
-              "state_changed",
-              (snapshot) => {
-                // Get task progress, including the number of bytes uploaded and the total number of bytes to be uploaded
-                const progress =
-                  (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                console.log("Upload is " + progress + "% done");
-
-                switch (snapshot.state) {
-                  case "paused":
-                    console.log("Upload is paused");
-                    break;
-                  case "running":
-                    console.log("Upload is running");
-                    break;
-                }
-              },
-              (error) => {
-                switch (error.code) {
-                  case "storage/unauthorized":
-                    resolve(null);
-                    break;
-                  case "storage/canceled":
-                    resolve(null);
-                    break;
-                  case "storage/unknown":
-                    resolve(null);
-                    break;
-                }
-              },
-              () => {
-                // Upload completed successfully, now we can get the download URL
-                getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-                  console.log("File available at", downloadURL);
-                  uploadedImages.push(downloadURL);
-                  resolve(true);
-                });
-              }
-            );
-          } catch (error) {
-            console.log(error);
-            setLoading(false);
-            toast.error("Something went wrong!");
-          }
-        })
-    );
-
-    //need to call this function after loop is done
-    Promise.all(uploadImage).then(async () => {
-      const updatedProductData = {
-        name: productName,
-        price: price,
-        qty: quantity,
-        description: description,
-        colors: colorOptions,
-        size: sizeOptions,
-        images: uploadedImages,
-        thumbnail: thumbnail ? thumbnail.index : 0,
-      };
-      const productRef = doc(
-        firebaseDatabase,
-        "products",
-        "0kYN3ZpwfgS1jc9qBI7L"
-      );
-      await updateDoc(productRef, updatedProductData).then(() => {
-        // set updated details as default
-        setDefaultProductData(updatedProductData);
-
+    // product ref
+    const productRef = doc(firebaseDatabase, "products", productId);
+    await updateDoc(productRef, {
+      name: name ? name : "",
+      price: price ? price : 0,
+      qty: qty ? qty : 0,
+      description: description ? description : "",
+      images: imagesUrl,
+      thumbnail: thumbnailUrl,
+      size: size ? size : [],
+      colors: colors ? colors : [],
+    })
+      .then(() => {
         setLoading(false);
         toast.success("Product has been updated.");
-        setUploaded(true);
+      })
+      .catch((error) => {
+        console.log("Product is not updated.", error);
       });
-    });
   };
-
+  // on load create a product id
   const router = useRouter();
+  const { id } = router.query;
   React.useEffect(() => {
-    const { id } = router.query;
-    setProductId("0kYN3ZpwfgS1jc9qBI7L");
+    // get product id
+    if (router.isReady) {
+      setProductData(id);
+    }
 
-    const getData = async () => {
-      const productRef = doc(
-        firebaseDatabase,
-        "products",
-        "0kYN3ZpwfgS1jc9qBI7L"
-      );
-      const selectedProduct = await getDoc(productRef);
-      const selectedProductData = selectedProduct.data();
-      // set product default data
-      setDefaultProductData(selectedProductData);
-      // set product data
-      setProductId(selectedProductData.id);
-      setProductName(selectedProductData.name);
-      setPrice(selectedProductData.price);
-      setQuantity(selectedProductData.qty);
-      setDescription(selectedProductData.description);
-      setColors(selectedProductData.colors);
-      setSize(selectedProductData.size);
-      setUploadedImageUrl(selectedProductData.images);
-      setThumbnailIndex(selectedProductData.thumbnail);
+    // ask before reload
+    const unloadCallback = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+      return "";
     };
-    getData();
-  }, []);
+
+    window.addEventListener("beforeunload", unloadCallback);
+    return () => window.removeEventListener("beforeunload", unloadCallback);
+  }, [router.isReady]);
 
   return (
     <>
@@ -294,7 +193,7 @@ const ProductEdit = () => {
           <ImageUploading
             multiple
             value={images}
-            onChange={onChangeThumbnail}
+            onChange={onChangeImage}
             maxNumber={maxNumber}
             dataURLKey="data_url"
             acceptType={["jpg"]}
@@ -353,7 +252,7 @@ const ProductEdit = () => {
                   </Typography>
                 </Box>
                 <Grid container spacing={2} mt={2}>
-                  {imageList.map((image, index) => (
+                  {imagesUrl.map((image, index) => (
                     <Grid
                       item
                       xs={6}
@@ -383,13 +282,15 @@ const ProductEdit = () => {
                           justifyContent: "center",
                         }}
                       >
-                        {thumbnail && thumbnail.index === index && (
-                          <Tooltip title="Selected Thumbnail">
-                            <IconButton onClick={() => onMakeThumbnail(index)}>
-                              <VrpanoIcon
+                        {thumbnailUrl && thumbnailUrl === image ? (
+                          ""
+                        ) : (
+                          <Tooltip title="Make it thumbnail">
+                            <IconButton onClick={() => onMakeThumbnail(image)}>
+                              <PhotoSizeSelectLargeIcon
                                 sx={{
                                   fontSize: "3rem",
-                                  color: "#00c292",
+                                  color: "#03c9d7",
                                   background: "#fff",
                                   padding: "0.5rem",
                                   borderRadius: "5px",
@@ -399,22 +300,9 @@ const ProductEdit = () => {
                             </IconButton>
                           </Tooltip>
                         )}
-                        <Tooltip title="Make it thumbnail">
-                          <IconButton onClick={() => onMakeThumbnail(index)}>
-                            <PhotoSizeSelectLargeIcon
-                              sx={{
-                                fontSize: "3rem",
-                                color: "#03c9d7",
-                                background: "#fff",
-                                padding: "0.5rem",
-                                borderRadius: "5px",
-                              }}
-                              title="Make it thumbnail"
-                            />
-                          </IconButton>
-                        </Tooltip>
+
                         <Tooltip title="Remove image">
-                          <IconButton onClick={() => onImageRemove(index)}>
+                          <IconButton onClick={() => onRemoveImage(image)}>
                             <ClearIcon
                               sx={{
                                 fontSize: "3rem",
@@ -429,96 +317,7 @@ const ProductEdit = () => {
                         </Tooltip>
                       </Box>
                       <img
-                        src={image.data_url}
-                        alt="Product Thumbnail"
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          objectPosition: "top",
-                        }}
-                      />
-                    </Grid>
-                  ))}
-                  {uploadedImageUrl.map((uploadedImage, index) => (
-                    <Grid
-                      item
-                      xs={6}
-                      md={4}
-                      lg={3}
-                      xl={2}
-                      key={index}
-                      sx={{
-                        width: "100%",
-                        height: {
-                          sm: "300px",
-                          xl: "300px",
-                        },
-                        position: "relative",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          bottom: 10,
-                          left: "16px",
-                          right: 0,
-                          width: "calc(100% - 16px)",
-                          display: "flex",
-                          padding: "5px",
-                          justifyContent: "center",
-                        }}
-                      >
-                        {index === thumbnailIndex && (
-                          <Tooltip title="Selected Thumbnail">
-                            <IconButton onClick={() => onMakeThumbnail(index)}>
-                              <VrpanoIcon
-                                sx={{
-                                  fontSize: "3rem",
-                                  color: "#00c292",
-                                  background: "#fff",
-                                  padding: "0.5rem",
-                                  borderRadius: "5px",
-                                }}
-                                title="Make it thumbnail"
-                              />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        <Tooltip title="Make it thumbnail">
-                          <IconButton onClick={() => onMakeThumbnail(index)}>
-                            <PhotoSizeSelectLargeIcon
-                              sx={{
-                                fontSize: "3rem",
-                                color: "#03c9d7",
-                                background: "#fff",
-                                padding: "0.5rem",
-                                borderRadius: "5px",
-                              }}
-                              title="Make it thumbnail"
-                            />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Remove image">
-                          <IconButton
-                            onClick={() => onRemoveUploadedImage(index)}
-                          >
-                            <ClearIcon
-                              sx={{
-                                fontSize: "3rem",
-                                color: "#e46a76",
-                                background: "#fff",
-                                padding: "0.5rem",
-                                borderRadius: "5px",
-                              }}
-                              title="Remove Image"
-                            />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                      <img
-                        src={uploadedImage}
+                        src={image}
                         alt="Product Thumbnail"
                         style={{
                           width: "100%",
@@ -538,10 +337,10 @@ const ProductEdit = () => {
             label="Product Name"
             variant="outlined"
             onChange={(e) => {
-              setProductName(e.target.value);
+              setName(e.target.value);
             }}
-            value={productName}
-            defaultValue={productName}
+            defaultValue={name}
+            value={name}
           />
           <TextField
             label="Price"
@@ -549,15 +348,17 @@ const ProductEdit = () => {
             onChange={(e) => {
               setPrice(e.target.value);
             }}
+            defaultValue={price}
             value={price}
           />
           <TextField
             label="Quantity"
             variant="outlined"
             onChange={(e) => {
-              setQuantity(e.target.value);
+              setQty(e.target.value);
             }}
-            value={quantity}
+            defaultValue={qty}
+            value={qty}
           />
           <TextField
             label="Product Description"
@@ -566,6 +367,7 @@ const ProductEdit = () => {
             onChange={(e) => {
               setDescription(e.target.value);
             }}
+            defaultValue={description}
             value={description}
           />
           <Autocomplete
@@ -617,13 +419,10 @@ const ProductEdit = () => {
             variant="contained"
             mt={2}
             onClick={() => {
-              onUpdateProduct();
+              onUpdate();
             }}
           >
-            {isLoading && "Uploading..."}
-            {isUploaded && "Uploaded"}
-
-            {!isUploaded && !isLoading && "Upload"}
+            {isLoading ? "Updating..." : "Update"}
           </Button>
           <Button
             variant="contained"
